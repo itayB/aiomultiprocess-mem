@@ -1,9 +1,8 @@
-import asyncio
 import logging
 import os
 import sys
 
-from aiomultiprocess import Pool
+from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +15,7 @@ def init_logger():
     logging.root.setLevel(logging.INFO)
 
 
-async def is_alive(pool):
-    while True:
-        if pool is not None:
-            logger.info(f"heartbeat alive {len(pool.processes.keys())} processes")
-        await asyncio.sleep(1)
-
-
-async def my_mem_task(task_id):
+def my_mem_task(task_id):
     logger.info(f"T{task_id:03} started!")
     data = []
     for i in range(100_000):
@@ -31,20 +23,17 @@ async def my_mem_task(task_id):
     logger.info(f"T{task_id:03} {len(data)}")
 
 
-async def main():
+def main():
     init_logger()
     number_of_processes = int(os.getenv("NUMBER_OF_PROCESSES", "4"))
-    number_of_async_tasks = int(os.getenv("NUMBER_OF_ASYNC_TASKS", "3"))
     logger.info("creating pool")
-    async with Pool(
+    with Pool(
             processes=number_of_processes,
-            childconcurrency=number_of_async_tasks,
             initializer=init_logger,
     ) as pool:
-        asyncio.create_task(is_alive(pool))
         task_ids = [task_id for task_id in range(150)]
-        await pool.map(my_mem_task, task_ids)
+        pool.map(my_mem_task, task_ids)
         pool.close()
         logger.info("processes pool closed")
-        await pool.join()
+        pool.join()
         logger.info("all processes are done")
